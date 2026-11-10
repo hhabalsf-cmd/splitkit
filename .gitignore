@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.coverage
+htmlcov/
+.pytest_cache/
+.env
+data/raw/
+data/*.duckdb
+.claude-flow/
+.claude/

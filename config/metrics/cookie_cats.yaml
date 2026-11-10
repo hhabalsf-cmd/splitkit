@@ -1,0 +1,14 @@
+metrics:
+  - name: retention_1
+    type: proportion
+    event: active_day_1
+    description: Player returned 1 day after install
+  - name: retention_7
+    type: proportion
+    event: active_day_7
+    description: Player returned 7 days after install
+  - name: game_rounds
+    type: mean
+    event: game_rounds
+    agg: sum
+    description: Rounds played in first 14 days

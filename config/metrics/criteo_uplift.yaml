@@ -1,0 +1,9 @@
+metrics:
+  - name: visit
+    type: proportion
+    event: visit
+    description: User visited the advertiser site
+  - name: conversion
+    type: proportion
+    event: conversion
+    description: User converted on the advertiser site

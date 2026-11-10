@@ -1,0 +1,22 @@
+# Local development database. Credentials come from the environment;
+# the fallback password is for this throwaway local container only.
+name: splitkit
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: splitkit_pg
+    environment:
+      POSTGRES_USER: splitkit
+      POSTGRES_PASSWORD: ${SPLITKIT_PG_PASSWORD:-splitkit_local_dev}
+      POSTGRES_DB: splitkit
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - splitkit_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U splitkit -d splitkit"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+volumes:
+  splitkit_pg:

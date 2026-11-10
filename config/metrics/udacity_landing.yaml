@@ -1,0 +1,5 @@
+metrics:
+  - name: conversion
+    type: proportion
+    event: converted
+    description: Visitor converted on the landing page
