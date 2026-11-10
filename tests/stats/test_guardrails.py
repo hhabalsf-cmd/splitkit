@@ -6,7 +6,7 @@ from statsmodels.stats.power import NormalIndPower
 from statsmodels.stats.proportion import proportion_effectsize
 
 from splitkit.stats.multiple import benjamini_hochberg
-from splitkit.stats.power import required_sample_size_proportion, minimum_detectable_effect
+from splitkit.stats.power import minimum_detectable_effect, required_sample_size_proportion
 from splitkit.stats.srm import srm_check
 
 

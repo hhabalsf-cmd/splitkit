@@ -44,3 +44,13 @@ filterwarnings = [
     # starlette suggests an unvetted "httpx2" package; httpx works fine for TestClient
     "ignore:Using `httpx` with `starlette.testclient` is deprecated",
 ]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+extend-exclude = ["sdk", "dashboard"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+# B008: FastAPI's Depends()/Query() in defaults is the framework's intended pattern
+ignore = ["B008"]

@@ -1,5 +1,8 @@
-# Local development database. Credentials come from the environment;
-# the fallback password is for this throwaway local container only.
+# Local stack. Credentials come from the environment; the fallback database
+# password is for this throwaway local container only.
+#
+#   docker compose -f infra/docker-compose.yml up -d --wait postgres     # DB only (tests)
+#   SPLITKIT_ADMIN_KEY=... docker compose -f infra/docker-compose.yml --profile app up -d --build
 name: splitkit
 services:
   postgres:
@@ -18,5 +21,24 @@ services:
       interval: 2s
       timeout: 3s
       retries: 15
+
+  app:
+    profiles: ["app"]
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile
+    image: splitkit:local
+    container_name: splitkit_app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPLITKIT_PG_DSN: postgresql://splitkit:${SPLITKIT_PG_PASSWORD:-splitkit_local_dev}@postgres:5432/splitkit
+      # no default on purpose: the stack refuses to start without a real key
+      SPLITKIT_ADMIN_KEY: ${SPLITKIT_ADMIN_KEY:?set SPLITKIT_ADMIN_KEY (16+ chars)}
+      SPLITKIT_CORS_ORIGINS: ${SPLITKIT_CORS_ORIGINS:-}
+    ports:
+      - "127.0.0.1:8080:8000"
+
 volumes:
   splitkit_pg:

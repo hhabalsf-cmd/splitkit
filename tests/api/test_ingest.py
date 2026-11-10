@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from splitkit.assignment import Variant, assign
 
@@ -26,12 +26,15 @@ def test_assign_returns_null_variant_when_not_running(client, admin_headers):
 
 
 def test_exposures_verified_against_hash(client, running_experiment):
-    right = _variant_for(running_experiment, "u1")
-    wrong = "treatment" if right == "control" else "control"
+    def other_arm(variant):
+        return "treatment" if variant == "control" else "control"
+
+    u1_arm = _variant_for(running_experiment, "u1")
+    u2_wrong_arm = other_arm(_variant_for(running_experiment, "u2"))
     r = client.post("/v1/exposures", json={"exposures": [
-        {"experiment_key": "checkout-v2", "user_id": "u1", "variant": right},
-        {"experiment_key": "checkout-v2", "user_id": "u2", "variant": wrong if _variant_for(running_experiment, "u2") == right else right},
-        {"experiment_key": "checkout-v2", "user_id": "u1", "variant": right},
+        {"experiment_key": "checkout-v2", "user_id": "u1", "variant": u1_arm},
+        {"experiment_key": "checkout-v2", "user_id": "u2", "variant": u2_wrong_arm},
+        {"experiment_key": "checkout-v2", "user_id": "u1", "variant": u1_arm},
         {"experiment_key": "missing-exp", "user_id": "u3", "variant": "control"},
     ]})
     assert r.status_code == 200
@@ -53,7 +56,7 @@ def test_events_are_idempotent_by_event_id(client, running_experiment):
 
 
 def test_event_validation(client):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     bad = [
         {"event_id": "e1", "user_id": "u", "event_name": "Bad Name"},
         {"event_id": "e1", "user_id": "", "event_name": "ok"},

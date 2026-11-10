@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 from splitkit.metrics.compiler import Dialect, compile_assignment_counts, compile_metric
@@ -56,7 +57,10 @@ def postgres_fetcher(conn: Any) -> Fetcher:
     return fetch
 
 
-def _test_metric(spec: MetricSpec, rows: dict[str, tuple], control: str, treatment: str, alpha: float) -> TestResult:
+def compare_metric(
+    spec: MetricSpec, rows: dict[str, tuple], control: str, treatment: str, alpha: float = 0.05
+) -> TestResult:
+    """Run the test that fits the metric type on per-variant moment rows from the compiler."""
     a, b = rows[control], rows[treatment]  # (variant, n, sum_x, sum_x2, sum_y, sum_y2, sum_xy)
     if spec.type == "proportion":
         return two_proportion_ztest(int(a[2]), int(a[1]), int(b[2]), int(b[1]), alpha=alpha)
@@ -80,22 +84,23 @@ def analyze_experiment(
     alpha: float = 0.05,
     srm_threshold: float = DEFAULT_THRESHOLD,
     dialect: Dialect = "duckdb",
+    as_of: datetime | None = None,
 ) -> ExperimentAnalysis:
     if len(weights) != 2:
         raise ValueError("weights must give (control, treatment) shares")
 
-    q = compile_assignment_counts(experiment_key, dialect)
+    q = compile_assignment_counts(experiment_key, dialect, as_of)
     counts = {str(v): int(n) for v, n in fetch(q.sql, q.params)}
     missing = [v for v in (control, treatment) if v not in counts]
     if missing:
         raise ValueError(f"variant(s) {missing} not found; have {sorted(counts)}")
     srm = srm_check([counts[control], counts[treatment]], list(weights), threshold=srm_threshold)
 
-    compiled = [(spec, compile_metric(spec, experiment_key, dialect)) for spec in metrics]
+    compiled = [(spec, compile_metric(spec, experiment_key, dialect, as_of)) for spec in metrics]
     results = []
     for spec, cq in compiled:
         rows = {str(r[0]): r for r in fetch(cq.sql, cq.params)}
-        results.append(_test_metric(spec, rows, control, treatment, alpha))
+        results.append(compare_metric(spec, rows, control, treatment, alpha))
 
     bh = benjamini_hochberg([r.p_value for r in results], alpha=alpha)
     analyses = tuple(
@@ -107,7 +112,7 @@ def analyze_experiment(
             significant=rej and not srm.mismatch,
             sql=cq.sql,
         )
-        for (spec, cq), res, adj, rej in zip(compiled, results, bh.adjusted, bh.rejected)
+        for (spec, cq), res, adj, rej in zip(compiled, results, bh.adjusted, bh.rejected, strict=True)
     )
     return ExperimentAnalysis(
         experiment_key=experiment_key,

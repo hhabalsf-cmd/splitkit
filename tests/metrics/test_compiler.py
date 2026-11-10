@@ -10,7 +10,7 @@ def _run(conn, spec, experiment="exp1"):
         "variant", "n", "sum_x", "sum_x2", "sum_y", "sum_y2", "sum_xy",
     ]
     rows = conn.execute(q.sql, q.params).fetchall()
-    return {r[0]: dict(zip(cols, r)) for r in rows}
+    return {r[0]: dict(zip(cols, r, strict=True)) for r in rows}
 
 
 def test_proportion_with_window(conn):

@@ -18,7 +18,7 @@ class TestMsprt:
         rng = np.random.default_rng(0)
         diffs = rng.normal(0.0, 1.0, 2000)
         ps = sequential_pvalues(diffs, tau2=0.01)
-        assert all(b <= a + 1e-12 for a, b in zip(ps, ps[1:]))
+        assert all(b <= a + 1e-12 for a, b in zip(ps, ps[1:], strict=False))
 
     def test_aa_false_positive_rate_controlled_under_continuous_peeking(self):
         rng = np.random.default_rng(123)

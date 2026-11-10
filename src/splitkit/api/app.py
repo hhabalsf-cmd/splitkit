@@ -7,6 +7,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from psycopg_pool import ConnectionPool
 
 from splitkit.api.envelope import fail, install_handlers
@@ -65,4 +67,14 @@ def create_app(settings: Settings, pool: ConnectionPool | None = None) -> FastAP
 
     install_handlers(app)
     app.include_router(router)
+
+    if settings.dashboard_dir:
+        # Same origin as the API, so the admin key never crosses origins.
+        # StaticFiles resolves paths inside the directory and rejects traversal.
+        app.mount("/dashboard", StaticFiles(directory=settings.dashboard_dir, html=True), name="dashboard")
+
+        @app.get("/", include_in_schema=False)
+        def root() -> RedirectResponse:
+            return RedirectResponse("/dashboard/", status_code=307)
+
     return app

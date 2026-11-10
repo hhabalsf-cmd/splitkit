@@ -14,6 +14,7 @@ from psycopg_pool import ConnectionPool
 from splitkit.analysis import ExperimentAnalysis, analyze_experiment, postgres_fetcher
 from splitkit.assignment import Variant
 from splitkit.metrics.spec import MetricSpec
+from splitkit.timeline import TimelinePoint, experiment_timeline
 
 # status -> statuses it may move to
 TRANSITIONS: dict[str, tuple[str, ...]] = {"draft": ("running", "stopped"), "running": ("stopped",), "stopped": ()}
@@ -88,7 +89,9 @@ class ExperimentRepository:
         with self._pool.connection() as conn:
             conn.execute("SELECT 1")
 
-    def create(self, key: str, salt: str, variants: Sequence[Variant], metrics: Sequence[MetricSpec]) -> ExperimentRecord:
+    def create(
+        self, key: str, salt: str, variants: Sequence[Variant], metrics: Sequence[MetricSpec]
+    ) -> ExperimentRecord:
         metrics_json = json.dumps([m.model_dump(mode="json") for m in metrics])
         try:
             with self._pool.connection() as conn, conn.transaction():
@@ -109,6 +112,31 @@ class ExperimentRepository:
     def get_many(self, keys: Sequence[str]) -> dict[str, ExperimentRecord]:
         with self._pool.connection() as conn:
             return _records(conn.execute(_SELECT_EXPERIMENTS, {"keys": list(set(keys))}).fetchall())
+
+    def list_all(self) -> list[ExperimentRecord]:
+        with self._pool.connection() as conn:
+            keys = [r[0] for r in conn.execute(
+                "SELECT experiment_key FROM experiments ORDER BY created_at DESC, experiment_key"
+            ).fetchall()]
+        records = self.get_many(keys) if keys else {}
+        return [records[k] for k in keys]
+
+    def first_exposure(self, key: str) -> datetime | None:
+        with self._pool.connection() as conn:
+            row = conn.execute(
+                "SELECT MIN(assigned_at) FROM assignments WHERE experiment_key = %s", (key,)
+            ).fetchone()
+        return row[0] if row else None
+
+    def timeline(
+        self, record: ExperimentRecord, metric: MetricSpec, points: Sequence[datetime]
+    ) -> tuple[TimelinePoint, ...]:
+        control, treatment = record.variants[0], record.variants[1]
+        with self._pool.connection() as conn:
+            return experiment_timeline(
+                postgres_fetcher(conn), record.key, metric, control.name, treatment.name,
+                points, dialect="postgres",
+            )
 
     def get(self, key: str) -> ExperimentRecord | None:
         return self.get_many([key]).get(key)
@@ -136,7 +164,7 @@ class ExperimentRepository:
         """rows: (experiment_key, user_id, variant). Returns newly inserted count."""
         if not rows:
             return 0
-        keys, users, variants = (list(col) for col in zip(*rows))
+        keys, users, variants = (list(col) for col in zip(*rows, strict=True))
         with self._pool.connection() as conn:
             inserted = conn.execute(
                 """
@@ -152,7 +180,7 @@ class ExperimentRepository:
 
     def insert_events(self, rows: Sequence[tuple[str, str, str, float | None, datetime | None]]) -> int:
         """rows: (event_id, user_id, event_name, value, ts or None for server time)."""
-        ids, users, names, values, stamps = (list(col) for col in zip(*rows))
+        ids, users, names, values, stamps = (list(col) for col in zip(*rows, strict=True))
         with self._pool.connection() as conn:
             inserted = conn.execute(
                 """

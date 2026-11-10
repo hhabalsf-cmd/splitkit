@@ -27,6 +27,19 @@ def msprt_pvalue(diff: float, var_diff: float, n: int, tau2: float) -> float:
     return float(min(1.0, np.exp(-log_lr)))
 
 
+def msprt_from_estimate(estimate: float, variance: float, tau2: float) -> float:
+    """Same mixture test, stated for any asymptotically normal estimate (e.g. a lift).
+
+    With V = variance of the estimate this equals msprt_pvalue(diff, V * n, n, tau2),
+    so it applies to proportions, Welch means and delta-method ratios alike.
+    """
+    if variance <= 0 or tau2 <= 0:
+        raise ValueError("variances must be positive")
+    denom = variance + tau2
+    log_lr = 0.5 * np.log(variance / denom) + (tau2 * estimate**2) / (2 * variance * denom)
+    return float(min(1.0, np.exp(-log_lr)))
+
+
 def sequential_pvalues(
     diffs: ArrayLike, tau2: float, var_diff: float | None = None
 ) -> list[float]:
@@ -46,7 +59,7 @@ def sequential_pvalues(
 
     out: list[float] = []
     running = 1.0
-    for n, mean, var in zip(n_idx, means, variances):
+    for n, mean, var in zip(n_idx, means, variances, strict=True):
         if n >= MIN_OBSERVATIONS and var > 0:
             running = min(running, msprt_pvalue(mean, var, int(n), tau2))
         out.append(running)

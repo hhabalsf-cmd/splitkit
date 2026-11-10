@@ -93,7 +93,7 @@ def test_full_readout_identical_on_both_engines(pg, duck):
     pg_rep = analyze_experiment(postgres_fetcher(pg), "exp1", METRICS, "control", "treatment", dialect="postgres")
     duck_rep = analyze_experiment(duckdb_fetcher(duck), "exp1", METRICS, "control", "treatment", dialect="duckdb")
     assert pg_rep.counts == duck_rep.counts == {"control": 3, "treatment": 3}
-    for p, d in zip(pg_rep.metrics, duck_rep.metrics):
+    for p, d in zip(pg_rep.metrics, duck_rep.metrics, strict=True):
         assert p.result.p_value == pytest.approx(d.result.p_value)
         assert p.result.abs_lift == pytest.approx(d.result.abs_lift)
 

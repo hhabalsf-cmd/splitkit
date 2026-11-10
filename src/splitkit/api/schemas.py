@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -77,13 +77,13 @@ class EventIn(_Model):
         """Normalize to naive UTC and refuse timestamps that would skew attribution."""
         if ts is None:
             return None
-        aware = ts if ts.tzinfo else ts.replace(tzinfo=timezone.utc)
-        now = datetime.now(timezone.utc)
+        aware = ts if ts.tzinfo else ts.replace(tzinfo=UTC)
+        now = datetime.now(UTC)
         if aware > now + MAX_CLOCK_SKEW:
             raise ValueError("timestamp is in the future")
         if aware < now - MAX_EVENT_AGE:
             raise ValueError("timestamp is older than 7 days")
-        return aware.astimezone(timezone.utc).replace(tzinfo=None)
+        return aware.astimezone(UTC).replace(tzinfo=None)
 
 
 class EventBatch(_Model):

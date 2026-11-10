@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hmac
 import secrets
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, Query, Request, Security
@@ -15,6 +16,7 @@ from splitkit.api.envelope import ApiError, finite, ok
 from splitkit.api.repository import ConflictError, ExperimentRepository, NotFoundError
 from splitkit.api.schemas import AssignRequest, EventBatch, ExperimentCreate, ExposureBatch, StatusUpdate
 from splitkit.assignment import Variant, assign
+from splitkit.timeline import evenly_spaced
 
 router = APIRouter()
 _api_key = APIKeyHeader(name="X-API-Key", auto_error=False)
@@ -57,6 +59,11 @@ def create_experiment(body: ExperimentCreate, r: ExperimentRepository = Depends(
     except ConflictError as exc:
         raise ApiError(409, str(exc)) from exc
     return ok(record.admin_view(), status=201)
+
+
+@router.get("/v1/experiments", dependencies=[Depends(require_admin)])
+def list_experiments(r: ExperimentRepository = Depends(repo)) -> JSONResponse:
+    return ok([rec.admin_view() for rec in r.list_all()])
 
 
 @router.get("/v1/experiments/{key}", dependencies=[Depends(require_admin)])
@@ -111,6 +118,43 @@ def results(
     except ValueError as exc:
         raise ApiError(409, f"not enough data to analyze yet: {exc}") from exc
     return ok(_serialize(report))
+
+
+@router.get("/v1/experiments/{key}/timeline", dependencies=[Depends(require_admin)])
+def timeline(
+    key: str,
+    metric: str | None = Query(None, max_length=64),
+    points: int = Query(12, ge=2, le=60),
+    r: ExperimentRepository = Depends(repo),
+) -> JSONResponse:
+    record = _lookup(r, key)
+    spec = next((m for m in record.metrics if metric is None or m.name == metric), None)
+    if spec is None:
+        raise ApiError(404, f"metric '{metric}' not found on experiment '{key}'")
+    start = r.first_exposure(key)
+    end = datetime.now(UTC).replace(tzinfo=None)
+    if start is None or end <= start:
+        raise ApiError(409, "not enough data to analyze yet: no exposures recorded")
+    series = r.timeline(record, spec, evenly_spaced(start, end, points))
+    return ok({
+        "metric": spec.name,
+        "type": spec.type,
+        "points": [
+            {
+                "as_of": p.as_of.isoformat(),
+                "n_control": p.n_control,
+                "n_treatment": p.n_treatment,
+                "mean_a": finite(p.mean_a),
+                "mean_b": finite(p.mean_b),
+                "abs_lift": finite(p.abs_lift),
+                "ci_low": finite(p.ci_low),
+                "ci_high": finite(p.ci_high),
+                "p_value": p.p_value,
+                "always_valid_p": p.always_valid_p,
+            }
+            for p in series
+        ],
+    })
 
 
 # ---- public (SDK) --------------------------------------------------------

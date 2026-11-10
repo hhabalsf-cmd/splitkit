@@ -10,17 +10,22 @@ Output columns: variant, n, sum_x, sum_x2, sum_y, sum_y2, sum_xy
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Literal
 
 from splitkit.metrics.spec import EventAgg, MetricSpec
 
 Dialect = Literal["duckdb", "postgres"]
 
-_AGG_SQL = {
-    "any": "CAST(1 AS DOUBLE PRECISION)",
-    "count": "CAST(COUNT(*) AS DOUBLE PRECISION)",
-    "sum": "CAST(SUM(COALESCE(e.value, 0)) AS DOUBLE PRECISION)",
-}
+# Per-user value of one event type, computed in the single events join below.
+# Only these fixed fragments are concatenated; the event name is a bound parameter.
+def _user_value(agg: EventAgg, param: str, dialect: Dialect) -> str:
+    match = f"e.event_name = {_ph(param, dialect)}"
+    if agg.agg == "any":
+        return f"CAST(CASE WHEN COUNT(e.event_id) FILTER (WHERE {match}) > 0 THEN 1 ELSE 0 END AS DOUBLE PRECISION)"
+    if agg.agg == "count":
+        return f"CAST(COUNT(e.event_id) FILTER (WHERE {match}) AS DOUBLE PRECISION)"
+    return f"CAST(COALESCE(SUM(e.value) FILTER (WHERE {match}), 0) AS DOUBLE PRECISION)"
 
 
 @dataclass(frozen=True)
@@ -37,9 +42,14 @@ def _ph(name: str, dialect: Dialect) -> str:
     raise ValueError(f"unsupported dialect: {dialect!r}")
 
 
-def _clean_exposure_cte(dialect: Dialect) -> str:
-    """First exposure per user; users seen in more than one variant are dropped."""
+def _clean_exposure_cte(dialect: Dialect, cutoff: bool = False) -> str:
+    """First exposure per user; users seen in more than one variant are dropped.
+
+    With a cutoff, only exposures before as_of exist: the readout as it
+    would have looked at that moment.
+    """
     exp = _ph("experiment_key", dialect)
+    as_of = f"\n          AND assigned_at < {_ph('as_of', dialect)}" if cutoff else ""
     return f"""clean_exposure AS (
     SELECT user_id, variant, assigned_at
     FROM (
@@ -48,27 +58,23 @@ def _clean_exposure_cte(dialect: Dialect) -> str:
                MIN(variant) OVER (PARTITION BY user_id) AS min_variant,
                MAX(variant) OVER (PARTITION BY user_id) AS max_variant
         FROM assignments
-        WHERE experiment_key = {exp}
+        WHERE experiment_key = {exp}{as_of}
     ) ranked
     WHERE rn = 1 AND min_variant = max_variant
 )"""
 
 
-def _event_cte(alias: str, agg: EventAgg, param: str, windowed: bool, dialect: Dialect) -> str:
-    window = (
-        f"\n       AND e.ts < f.assigned_at + {_ph('window_days', dialect)} * INTERVAL '1 day'"
-        if windowed
-        else ""
-    )
-    return f"""{alias} AS (
-    SELECT f.user_id, {_AGG_SQL[agg.agg]} AS value
-    FROM clean_exposure f
-    JOIN events e
-        ON e.user_id = f.user_id
-       AND e.event_name = {_ph(param, dialect)}
-       AND e.ts >= f.assigned_at{window}
-    GROUP BY f.user_id
-)"""
+def _event_join(names_sql: str, windowed: bool, cutoff: bool, dialect: Dialect) -> str:
+    conditions = [
+        "e.user_id = f.user_id",
+        f"e.event_name IN ({names_sql})" if "," in names_sql else f"e.event_name = {names_sql}",
+        "e.ts >= f.assigned_at",
+    ]
+    if windowed:
+        conditions.append(f"e.ts < f.assigned_at + {_ph('window_days', dialect)} * INTERVAL '1 day'")
+    if cutoff:
+        conditions.append(f"e.ts < {_ph('as_of', dialect)}")
+    return "\n       AND ".join(conditions)
 
 
 def _validate_key(experiment_key: str) -> None:
@@ -76,28 +82,44 @@ def _validate_key(experiment_key: str) -> None:
         raise ValueError("experiment_key must be 1-64 characters")
 
 
-def compile_metric(spec: MetricSpec, experiment_key: str, dialect: Dialect = "postgres") -> CompiledQuery:
+def compile_metric(
+    spec: MetricSpec,
+    experiment_key: str,
+    dialect: Dialect = "postgres",
+    as_of: datetime | None = None,
+) -> CompiledQuery:
     _validate_key(experiment_key)
     _ph("x", dialect)  # fail fast on unknown dialects
     windowed = spec.window_days is not None
+    cutoff = as_of is not None
     params: dict[str, object] = {"experiment_key": experiment_key, "num_event": spec.numerator.event}
     if windowed:
         params["window_days"] = spec.window_days
+    if cutoff:
+        params["as_of"] = as_of
 
-    ctes = [_clean_exposure_cte(dialect), _event_cte("num", spec.numerator, "num_event", windowed, dialect)]
+    # One LEFT JOIN from exposed users to their events, numerator and denominator
+    # computed together with FILTER. Joining separately aggregated subqueries
+    # instead lets a stale row estimate turn into a per-user re-aggregation.
+    x_select = _user_value(spec.numerator, "num_event", dialect)
+    names = _ph("num_event", dialect)
     if spec.denominator is not None:
         params["den_event"] = spec.denominator.event
-        ctes.append(_event_cte("den", spec.denominator, "den_event", windowed, dialect))
-        y_select = "COALESCE(den.value, 0)"
-        den_join = "\n    LEFT JOIN den ON den.user_id = f.user_id"
+        y_select = _user_value(spec.denominator, "den_event", dialect)
+        names += ", " + _ph("den_event", dialect)
     else:
-        y_select, den_join = "CAST(NULL AS DOUBLE PRECISION)", ""
+        y_select = "CAST(NULL AS DOUBLE PRECISION)"
 
-    ctes.append(f"""per_user AS (
-    SELECT f.variant, COALESCE(num.value, 0) AS x, {y_select} AS y
+    ctes = [
+        _clean_exposure_cte(dialect, cutoff),
+        f"""per_user AS (
+    SELECT f.variant, {x_select} AS x, {y_select} AS y
     FROM clean_exposure f
-    LEFT JOIN num ON num.user_id = f.user_id{den_join}
-)""")
+    LEFT JOIN events e
+        ON {_event_join(names, windowed, cutoff, dialect)}
+    GROUP BY f.user_id, f.variant
+)""",
+    ]
 
     sql = "WITH " + ",\n".join(ctes) + """
 SELECT variant,
@@ -113,12 +135,17 @@ ORDER BY variant"""
     return CompiledQuery(sql=sql, params=params)
 
 
-def compile_assignment_counts(experiment_key: str, dialect: Dialect = "postgres") -> CompiledQuery:
+def compile_assignment_counts(
+    experiment_key: str, dialect: Dialect = "postgres", as_of: datetime | None = None
+) -> CompiledQuery:
     """Users per variant after exclusions: the input to the SRM check."""
     _validate_key(experiment_key)
-    sql = f"""WITH {_clean_exposure_cte(dialect)}
+    sql = f"""WITH {_clean_exposure_cte(dialect, as_of is not None)}
 SELECT variant, COUNT(*) AS n
 FROM clean_exposure
 GROUP BY variant
 ORDER BY variant"""
-    return CompiledQuery(sql=sql, params={"experiment_key": experiment_key})
+    params: dict[str, object] = {"experiment_key": experiment_key}
+    if as_of is not None:
+        params["as_of"] = as_of
+    return CompiledQuery(sql=sql, params=params)
