@@ -15,16 +15,21 @@ DDL: tuple[str, ...] = (
     CREATE TABLE IF NOT EXISTS experiments (
         experiment_key VARCHAR(64) PRIMARY KEY,
         salt           VARCHAR(64) NOT NULL,
-        status         VARCHAR(16) NOT NULL DEFAULT 'draft',
+        status         VARCHAR(16) NOT NULL DEFAULT 'draft'
+                       CHECK (status IN ('draft', 'running', 'stopped')),
+        metrics_json   TEXT        NOT NULL DEFAULT '[]',
         created_at     TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
     """,
+    # position fixes variant order: assignment walks cumulative weights in this order
     """
     CREATE TABLE IF NOT EXISTS experiment_variants (
         experiment_key VARCHAR(64)      NOT NULL REFERENCES experiments (experiment_key),
         variant        VARCHAR(32)      NOT NULL,
         weight         DOUBLE PRECISION NOT NULL CHECK (weight > 0 AND weight <= 1),
-        PRIMARY KEY (experiment_key, variant)
+        position       SMALLINT         NOT NULL,
+        PRIMARY KEY (experiment_key, variant),
+        UNIQUE (experiment_key, position)
     )
     """,
     """

@@ -1,0 +1,397 @@
+{
+  "scheme": "fnv1a32-double",
+  "cases": [
+    {
+      "salt": "checkout-v2",
+      "user_id": "user-1",
+      "variants": [
+        {
+          "name": "control",
+          "weight": 0.5
+        },
+        {
+          "name": "treatment",
+          "weight": 0.5
+        }
+      ],
+      "expected": "treatment"
+    },
+    {
+      "salt": "checkout-v2",
+      "user_id": "user-2",
+      "variants": [
+        {
+          "name": "control",
+          "weight": 0.5
+        },
+        {
+          "name": "treatment",
+          "weight": 0.5
+        }
+      ],
+      "expected": "control"
+    },
+    {
+      "salt": "checkout-v2",
+      "user_id": "user-3",
+      "variants": [
+        {
+          "name": "control",
+          "weight": 0.5
+        },
+        {
+          "name": "treatment",
+          "weight": 0.5
+        }
+      ],
+      "expected": "control"
+    },
+    {
+      "salt": "checkout-v2",
+      "user_id": "42",
+      "variants": [
+        {
+          "name": "control",
+          "weight": 0.5
+        },
+        {
+          "name": "treatment",
+          "weight": 0.5
+        }
+      ],
+      "expected": "control"
+    },
+    {
+      "salt": "checkout-v2",
+      "user_id": "alice@example.com",
+      "variants": [
+        {
+          "name": "control",
+          "weight": 0.5
+        },
+        {
+          "name": "treatment",
+          "weight": 0.5
+        }
+      ],
+      "expected": "treatment"
+    },
+    {
+      "salt": "checkout-v2",
+      "user_id": "émile",
+      "variants": [
+        {
+          "name": "control",
+          "weight": 0.5
+        },
+        {
+          "name": "treatment",
+          "weight": 0.5
+        }
+      ],
+      "expected": "treatment"
+    },
+    {
+      "salt": "checkout-v2",
+      "user_id": "",
+      "variants": [
+        {
+          "name": "control",
+          "weight": 0.5
+        },
+        {
+          "name": "treatment",
+          "weight": 0.5
+        }
+      ],
+      "expected": "control"
+    },
+    {
+      "salt": "checkout-v2",
+      "user_id": "user-999999",
+      "variants": [
+        {
+          "name": "control",
+          "weight": 0.5
+        },
+        {
+          "name": "treatment",
+          "weight": 0.5
+        }
+      ],
+      "expected": "control"
+    },
+    {
+      "salt": "hero-copy",
+      "user_id": "user-1",
+      "variants": [
+        {
+          "name": "a",
+          "weight": 0.2
+        },
+        {
+          "name": "b",
+          "weight": 0.3
+        },
+        {
+          "name": "c",
+          "weight": 0.5
+        }
+      ],
+      "expected": "b"
+    },
+    {
+      "salt": "hero-copy",
+      "user_id": "user-2",
+      "variants": [
+        {
+          "name": "a",
+          "weight": 0.2
+        },
+        {
+          "name": "b",
+          "weight": 0.3
+        },
+        {
+          "name": "c",
+          "weight": 0.5
+        }
+      ],
+      "expected": "a"
+    },
+    {
+      "salt": "hero-copy",
+      "user_id": "user-3",
+      "variants": [
+        {
+          "name": "a",
+          "weight": 0.2
+        },
+        {
+          "name": "b",
+          "weight": 0.3
+        },
+        {
+          "name": "c",
+          "weight": 0.5
+        }
+      ],
+      "expected": "b"
+    },
+    {
+      "salt": "hero-copy",
+      "user_id": "42",
+      "variants": [
+        {
+          "name": "a",
+          "weight": 0.2
+        },
+        {
+          "name": "b",
+          "weight": 0.3
+        },
+        {
+          "name": "c",
+          "weight": 0.5
+        }
+      ],
+      "expected": "b"
+    },
+    {
+      "salt": "hero-copy",
+      "user_id": "alice@example.com",
+      "variants": [
+        {
+          "name": "a",
+          "weight": 0.2
+        },
+        {
+          "name": "b",
+          "weight": 0.3
+        },
+        {
+          "name": "c",
+          "weight": 0.5
+        }
+      ],
+      "expected": "b"
+    },
+    {
+      "salt": "hero-copy",
+      "user_id": "émile",
+      "variants": [
+        {
+          "name": "a",
+          "weight": 0.2
+        },
+        {
+          "name": "b",
+          "weight": 0.3
+        },
+        {
+          "name": "c",
+          "weight": 0.5
+        }
+      ],
+      "expected": "c"
+    },
+    {
+      "salt": "hero-copy",
+      "user_id": "",
+      "variants": [
+        {
+          "name": "a",
+          "weight": 0.2
+        },
+        {
+          "name": "b",
+          "weight": 0.3
+        },
+        {
+          "name": "c",
+          "weight": 0.5
+        }
+      ],
+      "expected": "c"
+    },
+    {
+      "salt": "hero-copy",
+      "user_id": "user-999999",
+      "variants": [
+        {
+          "name": "a",
+          "weight": 0.2
+        },
+        {
+          "name": "b",
+          "weight": 0.3
+        },
+        {
+          "name": "c",
+          "weight": 0.5
+        }
+      ],
+      "expected": "a"
+    },
+    {
+      "salt": "ramp-10pct",
+      "user_id": "user-1",
+      "variants": [
+        {
+          "name": "control",
+          "weight": 0.9
+        },
+        {
+          "name": "treatment",
+          "weight": 0.1
+        }
+      ],
+      "expected": "control"
+    },
+    {
+      "salt": "ramp-10pct",
+      "user_id": "user-2",
+      "variants": [
+        {
+          "name": "control",
+          "weight": 0.9
+        },
+        {
+          "name": "treatment",
+          "weight": 0.1
+        }
+      ],
+      "expected": "control"
+    },
+    {
+      "salt": "ramp-10pct",
+      "user_id": "user-3",
+      "variants": [
+        {
+          "name": "control",
+          "weight": 0.9
+        },
+        {
+          "name": "treatment",
+          "weight": 0.1
+        }
+      ],
+      "expected": "treatment"
+    },
+    {
+      "salt": "ramp-10pct",
+      "user_id": "42",
+      "variants": [
+        {
+          "name": "control",
+          "weight": 0.9
+        },
+        {
+          "name": "treatment",
+          "weight": 0.1
+        }
+      ],
+      "expected": "control"
+    },
+    {
+      "salt": "ramp-10pct",
+      "user_id": "alice@example.com",
+      "variants": [
+        {
+          "name": "control",
+          "weight": 0.9
+        },
+        {
+          "name": "treatment",
+          "weight": 0.1
+        }
+      ],
+      "expected": "treatment"
+    },
+    {
+      "salt": "ramp-10pct",
+      "user_id": "émile",
+      "variants": [
+        {
+          "name": "control",
+          "weight": 0.9
+        },
+        {
+          "name": "treatment",
+          "weight": 0.1
+        }
+      ],
+      "expected": "control"
+    },
+    {
+      "salt": "ramp-10pct",
+      "user_id": "",
+      "variants": [
+        {
+          "name": "control",
+          "weight": 0.9
+        },
+        {
+          "name": "treatment",
+          "weight": 0.1
+        }
+      ],
+      "expected": "control"
+    },
+    {
+      "salt": "ramp-10pct",
+      "user_id": "user-999999",
+      "variants": [
+        {
+          "name": "control",
+          "weight": 0.9
+        },
+        {
+          "name": "treatment",
+          "weight": 0.1
+        }
+      ],
+      "expected": "control"
+    }
+  ]
+}

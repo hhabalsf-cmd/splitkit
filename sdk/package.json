@@ -1,0 +1,24 @@
+{
+  "name": "splitkit-sdk",
+  "version": "0.1.0",
+  "description": "Client SDK for Splitkit: deterministic assignment and batched event tracking",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "@vitest/coverage-v8": "^3.2.7",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7"
+  }
+}
