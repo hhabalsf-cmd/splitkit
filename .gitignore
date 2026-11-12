@@ -9,3 +9,11 @@ data/raw/
 data/*.duckdb
 .claude-flow/
 .claude/
+
+# terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+infra/terraform/backend.hcl
+*.tfvars
+!*.tfvars.example

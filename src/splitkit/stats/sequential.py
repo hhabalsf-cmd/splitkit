@@ -57,10 +57,9 @@ def sequential_pvalues(
     else:
         variances = np.full(d.size, float(var_diff))
 
-    out: list[float] = []
-    running = 1.0
-    for n, mean, var in zip(n_idx, means, variances, strict=True):
-        if n >= MIN_OBSERVATIONS and var > 0:
-            running = min(running, msprt_pvalue(mean, var, int(n), tau2))
-        out.append(running)
-    return out
+    valid = (n_idx >= MIN_OBSERVATIONS) & (variances > 0)
+    safe_var = np.where(valid, variances, 1.0)
+    denom = safe_var + n_idx * tau2
+    log_lr = 0.5 * np.log(safe_var / denom) + (n_idx**2 * tau2 * means**2) / (2 * safe_var * denom)
+    pvals = np.where(valid, np.minimum(1.0, np.exp(-log_lr)), 1.0)
+    return np.minimum.accumulate(pvals).tolist()
