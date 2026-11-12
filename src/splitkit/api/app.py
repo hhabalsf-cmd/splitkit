@@ -20,11 +20,18 @@ from splitkit.api.settings import Settings
 UNLIMITED_PATHS = frozenset({"/health"})
 
 
-def _client_id(request: Request, trust_proxy: bool) -> str:
-    if trust_proxy:
-        forwarded = request.headers.get("x-forwarded-for", "")
-        if forwarded:
-            return forwarded.split(",")[0].strip()
+def _client_id(request: Request, trusted_hops: int) -> str:
+    """Client IP for rate limiting.
+
+    Each trusted proxy appends the address it saw, so the real client is the
+    `trusted_hops`-th entry from the right. Anything further left is
+    client-supplied and must not be trusted (it would let callers dodge the
+    limiter by rotating a fake header).
+    """
+    if trusted_hops > 0:
+        parts = [p.strip() for p in request.headers.get("x-forwarded-for", "").split(",") if p.strip()]
+        if len(parts) >= trusted_hops:
+            return parts[-trusted_hops]
     return request.client.host if request.client else "unknown"
 
 
@@ -51,7 +58,8 @@ def create_app(settings: Settings, pool: ConnectionPool | None = None) -> FastAP
 
     @app.middleware("http")
     async def rate_limit(request: Request, call_next):
-        if request.url.path not in UNLIMITED_PATHS and not limiter.allow(_client_id(request, settings.trust_proxy)):
+        client = _client_id(request, settings.trusted_proxy_hops)
+        if request.url.path not in UNLIMITED_PATHS and not limiter.allow(client):
             return fail(429, "rate limit exceeded", headers={"Retry-After": "60"})
         return await call_next(request)
 
