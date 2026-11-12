@@ -74,6 +74,27 @@ gh workflow run CI --ref main
 Terraform owns the task definition's shape (env, secrets, CPU/memory); CI owns the image. CI
 always starts from the latest revision, so Terraform changes ship on the next deploy.
 
+## First live experiment (LayerLab)
+
+LayerLab ships with the SDK wired in behind a flag (branch `feat/splitkit-experiment` in
+`hhabalsf-cmd/layerlab`), off by default. On the day the stack is up:
+
+```bash
+# 1. let LayerLab's origin call the API from the browser
+terraform -chdir=infra/terraform apply -var='cors_origins=["https://<layerlab-domain>"]'
+gh workflow run CI --ref main
+
+# 2. create the experiment (draft), then start it
+SPLITKIT_URL=... SPLITKIT_ADMIN_KEY=... python scripts/seed_layerlab.py
+SPLITKIT_URL=... SPLITKIT_ADMIN_KEY=... python scripts/seed_layerlab.py --start
+
+# 3. in the LayerLab Vercel project, set and redeploy
+#    NEXT_PUBLIC_SPLITKIT_API_URL=https://<cloudfront-domain>
+#    NEXT_PUBLIC_SPLITKIT_ENABLED=1
+```
+
+Turning the flag off (or stopping the experiment) puts every visitor back on control.
+
 ## Tear down
 
 ```bash

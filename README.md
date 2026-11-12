@@ -29,7 +29,7 @@ whether to ship.
 |---|---:|---|
 | [Cookie Cats](https://www.kaggle.com/datasets/yufengsui/mobile-games-ab-testing) (mobile game) | 90,189 | Moving the first gate from level 30 to 40 **lowered 7-day retention by 0.82 pts** (19.0% → 18.2%, p = 0.0016; still significant after Benjamini–Hochberg across 3 metrics). Day-1 retention and rounds played: no detectable change. **Recommendation: keep the gate at 30.** |
 | [Udacity landing page](https://www.kaggle.com/datasets/zhangluyuan/ab-testing) | 290,584 | 3,893 rows logged a user on the wrong page and were dropped. After that, **no detectable effect** (−0.16 pts, 95% CI [−0.39, +0.08], p = 0.19). **Recommendation: don't ship the new page.** |
-| [Criteo uplift v2.1](https://ailab.criteo.com/criteo-uplift-prediction-dataset/) | 13,979,592 | Uneven 85/15 split passes the sample-ratio check. Visits +27%, conversions +59%. **Full readout in 5.2 s** on a laptop (load 14.3 s). |
+| [Criteo uplift v2.1](https://ailab.criteo.com/criteo-uplift-prediction-dataset/) | 13,979,592 | Uneven 85/15 split passes the sample-ratio check. Visits **+1.03 pts** (3.82% → 4.85%, 95% CI [+1.01, +1.06]; relative +27.1% [+26.2%, +28.0%]); conversions **+0.115 pts** (0.194% → 0.309%, 95% CI [+0.109, +0.122]; relative +59.4% [+54.3%, +64.6%]). **Full readout in 5.2 s** on a laptop (load 14.3 s). |
 
 Reproduce with `python scripts/run_datasets.py` after downloading the CSVs into `data/raw/`.
 
@@ -46,9 +46,22 @@ experiments per scenario, 5,000 users per arm):
 | Always-valid mSPRT p-value, checked after every user | **1.9%** |
 
 Checking a standard test repeatedly quadruples false positives. The sequential test fixes
-that, at the cost of needing more data to detect a real effect. The timeline chart (Fig. 2
-in the screenshot) makes that trade-off visible: the fixed p-value dips below 0.05
-days before the always-valid p-value does.
+that, but it costs data. To measure how much, a second simulation streams users into
+1,000 experiments with a real +1.5 pt lift on a 10% baseline and records when the
+always-valid p-value first drops below 0.05:
+
+| Detecting a real +1.5 pt lift (1,000 simulated experiments) | Users per arm |
+|---|---:|
+| Fixed-horizon test planned for 80% power | 6,690 |
+| mSPRT, to reach the same 80% power | **10,633 (1.59×)** |
+| mSPRT, median experiment | 6,437 |
+
+So mSPRT needs **59% more traffic** to match the fixed test's power, and at the fixed test's
+sample size it catches the effect only 52.2% of the time instead of 80%. It does let you stop
+the moment the evidence is there, though: half the experiments stopped before the fixed test
+would even have read out. The timeline chart (Fig. 2 in the screenshot) shows the same
+trade-off on one experiment: the fixed p-value dips below 0.05 days before the always-valid
+p-value does. Reproduce with `python scripts/run_sim.py` (about 3 s).
 
 ## Engineering numbers
 
@@ -57,7 +70,7 @@ days before the always-valid p-value does.
 | Load test (Locust, 100 clients, 60 s, 4 workers) | **1,344 req/s**, p95 140 ms, 0 errors over ~80k requests |
 | Event ingestion | ~30,500 events/s; database row counts matched requests exactly |
 | Readout with stale planner statistics (20k users) | 62.6 s → **0.25 s** after rewriting the metric SQL (see below) |
-| Tests | 132 Python (95.6% coverage, including Postgres integration), 20 SDK, 22 dashboard |
+| Tests | 149 Python (96% coverage, including Postgres integration), 20 SDK, 22 dashboard |
 
 The load test ran with the server, Postgres and Locust all on one M2 laptop, so treat the
 throughput as a lower bound.
