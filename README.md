@@ -164,14 +164,14 @@ src/splitkit/
 sdk/              TypeScript client SDK (no runtime dependencies)
 dashboard/        React + TypeScript + Recharts readout UI
 config/metrics/   metric definitions for the public datasets
-infra/            Dockerfile, docker-compose
+infra/            Dockerfile, docker-compose, Terraform for AWS (see docs/deploy.md)
 scripts/          dataset readouts, simulation, demo seed, load test
 tests/            unit, API, Postgres integration, performance regression
 ```
 
 ## Roadmap
 
-- Cloud deployment (planned: AWS ECS Fargate + RDS)
+- Apply the AWS stack (Terraform + CI deploy job are written and validated; not yet applied)
 - A live experiment on a production site through the SDK
 - Readouts for experiments with more than two arms (assignment already supports them)
 - Versioned schema migrations once there is a deployed schema to migrate
